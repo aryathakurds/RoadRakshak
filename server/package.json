@@ -1,0 +1,28 @@
+{
+  "name": "roadrakshak-server",
+  "version": "1.0.0",
+  "description": "Backend API for RoadRakshak",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "seed:locations": "node src/scripts/seedLocations.js",
+    "set-role": "node src/scripts/setUserRole.js",
+    "seed:authorities": "node src/scripts/seedAuthorities.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cloudinary": "^2.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.5.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.19.1",
+    "multer": "^2.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
