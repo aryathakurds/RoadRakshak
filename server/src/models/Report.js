@@ -1,44 +1,164 @@
 const mongoose = require("mongoose");
 
-const statusHistorySchema =
-  new mongoose.Schema({
-    status: {
-      type: String,
-      required: true,
-      enum: [
-        "Complaint ready",
-        "Sent to authority",
-        "Inspection pending",
-        "Repair in progress",
-        "Resolved",
-        "Rejected",
-      ],
-    },
+const statusHistorySchema = new mongoose.Schema({
+  status: {
+    type: String,
+    required: true,
+    enum: [
+      "Complaint ready",
+      "Sent to authority",
+      "Inspection pending",
+      "Repair in progress",
+      "Resolved",
+      "Rejected",
+    ],
+  },
 
-    note: {
+  note: {
+    type: String,
+    default: "",
+    trim: true,
+    maxlength: 500,
+  },
+
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null,
+  },
+
+  updatedByName: {
+    type: String,
+    default: "RoadRakshak system",
+    trim: true,
+  },
+
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+const aiReportSchema = new mongoose.Schema(
+  {
+    improvedDescription: {
       type: String,
       default: "",
       trim: true,
-      maxlength: 500,
+      maxlength: 3000,
     },
 
-    updatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
-    },
-
-    updatedByName: {
+    complaintLetter: {
       type: String,
-      default: "RoadRakshak system",
+      default: "",
+      trim: true,
+      maxlength: 6000,
+    },
+
+    riskSummary: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 1500,
+    },
+
+    suggestedAction: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 1500,
+    },
+
+    suggestedSeverity: {
+      type: String,
+      default: "",
       trim: true,
     },
 
-    createdAt: {
-      type: Date,
-      default: Date.now,
+    model: {
+      type: String,
+      default: "",
+      trim: true,
     },
-  });
+
+    generatedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+const aiDetectionSchema = new mongoose.Schema(
+  {
+    isRoadIssue: {
+      type: Boolean,
+      default: false,
+    },
+
+    issueType: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    confidence: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    severity: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    description: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 3000,
+    },
+
+    riskSummary: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 1500,
+    },
+
+    suggestedAction: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 1500,
+    },
+
+    visibleEvidence: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 1500,
+    },
+
+    model: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    analyzedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  {
+    _id: false,
+  }
+);
 
 const reportSchema = new mongoose.Schema(
   {
@@ -50,12 +170,7 @@ const reportSchema = new mongoose.Schema(
 
     severity: {
       type: String,
-      enum: [
-        "Low",
-        "Medium",
-        "High",
-        "Critical",
-      ],
+      enum: ["Low", "Medium", "High", "Critical"],
       default: "Medium",
     },
 
@@ -118,6 +233,16 @@ const reportSchema = new mongoose.Schema(
     complaintSubmittedAt: {
       type: Date,
       default: null,
+    },
+
+    aiReport: {
+      type: aiReportSchema,
+      default: () => ({}),
+    },
+
+    aiDetection: {
+      type: aiDetectionSchema,
+      default: () => ({}),
     },
 
     status: {
@@ -199,7 +324,4 @@ reportSchema.index({
   status: 1,
 });
 
-module.exports = mongoose.model(
-  "Report",
-  reportSchema
-);
+module.exports = mongoose.model("Report", reportSchema);

@@ -4,7 +4,7 @@ import {
 } from "./apiClient";
 
 export const signupUser = (userData) => {
-  return apiRequest("/auth/signup", {
+  return apiRequest("/auth/register", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

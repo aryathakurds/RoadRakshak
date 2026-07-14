@@ -1,4 +1,5 @@
 import {
+  BrainCircuit,
   Building2,
   Camera,
   Check,
@@ -19,9 +20,15 @@ function NewReport({
   authorityLoading,
   locationStatus,
   submitStatus,
+  aiReportLoading,
+  aiReportResult,
+  photoAnalysisLoading,
+  photoAnalysisResult,
   handleReportChange,
   handlePhotoChange,
   handleGetLocation,
+  handleAnalyzeRoadPhoto,
+  handleGenerateAIReport,
   handleSubmitReport,
 }) {
   const updateField = (name, value) => {
@@ -55,26 +62,20 @@ function NewReport({
   };
 
   const authorityName =
-    authorityMatch?.name ||
-    "Location required for authority matching";
+    authorityMatch?.name || "Location required for authority matching";
 
   const authorityDepartment =
     authorityMatch?.department ||
     "The responsible road department will appear here.";
 
   const authorityChannel =
-    authorityMatch?.channel ||
-    "Official complaint channel pending";
+    authorityMatch?.channel || "Official complaint channel pending";
 
-  const authorityConfidence =
-    authorityMatch?.confidence || "Pending";
+  const authorityConfidence = authorityMatch?.confidence || "Pending";
 
   const complaintUrl = authorityMatch?.complaintUrl || "";
 
-  const hasPhoto = Boolean(
-    reportForm.photoPreview || reportForm.photoName
-  );
-
+  const hasPhoto = Boolean(reportForm.photoPreview || reportForm.photoName);
   const hasLocation = Boolean(reportForm.location);
 
   return (
@@ -83,18 +84,14 @@ function NewReport({
 
       <section className="newReportHero">
         <img src="/new-report-banner-v2.png" alt="Road inspection in progress" />
-
         <div className="newReportHeroOverlay" />
 
         <div className="newReportHeroContent">
           <p>Citizen road reporting</p>
-
           <h1>Create a new road report.</h1>
-
           <span>
-            Add photographic evidence, verify the location and
-            prepare a structured complaint for the responsible
-            authority.
+            Add photographic evidence, verify the location and prepare a
+            structured complaint for the responsible authority.
           </span>
         </div>
       </section>
@@ -147,12 +144,8 @@ function NewReport({
                 <div>
                   <span>Step 01</span>
                   <h2>Add road evidence</h2>
-                  <p>
-                    Upload a clear image that shows the complete
-                    road issue.
-                  </p>
+                  <p>Upload a clear image that shows the complete road issue.</p>
                 </div>
-
                 <Camera size={21} />
               </div>
 
@@ -163,15 +156,12 @@ function NewReport({
                       src={reportForm.photoPreview}
                       alt="Selected road evidence"
                     />
-
                     <div className="newReportPhotoOverlay" />
-
                     <div className="newReportPhotoDetails">
                       <div>
                         <strong>Evidence selected</strong>
                         <span>{reportForm.photoName}</span>
                       </div>
-
                       <i>
                         <Check size={17} />
                       </i>
@@ -182,16 +172,10 @@ function NewReport({
                     <span>
                       <Upload size={22} />
                     </span>
-
-                    <strong>
-                      Upload or capture a road photograph
-                    </strong>
-
+                    <strong>Upload or capture a road photograph</strong>
                     <p>
-                      JPG, PNG or WebP. Make sure the damage is
-                      clearly visible.
+                      JPG, PNG or WebP. Make sure the damage is clearly visible.
                     </p>
-
                     <b>
                       <Camera size={15} />
                       Choose photograph
@@ -206,6 +190,47 @@ function NewReport({
                   onChange={handlePhotoChange}
                 />
               </label>
+
+              <div className="newReportPhotoTools">
+                <button
+                  type="button"
+                  onClick={handleAnalyzeRoadPhoto}
+                  disabled={!hasPhoto || photoAnalysisLoading}
+                >
+                  <BrainCircuit size={16} />
+                  {photoAnalysisLoading
+                    ? "Analyzing photo..."
+                    : "Analyze road photo"}
+                </button>
+
+                {photoAnalysisResult && (
+                  <div className="newReportDetectionCard">
+                    <div>
+                      <strong>
+                        {photoAnalysisResult.issueType ||
+                          "Road issue detected"}
+                      </strong>
+                      <span>
+                        {photoAnalysisResult.confidence ||
+                          "Confidence not available"}
+                      </span>
+                    </div>
+
+                    <p>
+                      {photoAnalysisResult.visibleEvidence ||
+                        photoAnalysisResult.description ||
+                        "AI analyzed the road photograph."}
+                    </p>
+
+                    <small>
+                      Severity: {photoAnalysisResult.severity || "Medium"} |{" "}
+                      {photoAnalysisResult.isRoadIssue
+                        ? "Road issue confirmed"
+                        : "Needs manual review"}
+                    </small>
+                  </div>
+                )}
+              </div>
             </section>
 
             <section className="newReportSection">
@@ -213,61 +238,44 @@ function NewReport({
                 <div>
                   <span>Step 02</span>
                   <h2>Verify the location</h2>
-                  <p>
-                    Search for the road or use your current GPS
-                    location.
-                  </p>
+                  <p>Search for the road or use your current GPS location.</p>
                 </div>
-
                 <MapPin size={21} />
               </div>
 
-              <LocationSearch
-                onSelectLocation={handleLocationSelect}
-              />
+              <LocationSearch onSelectLocation={handleLocationSelect} />
 
               <div className="newReportLocationActions">
-                <button
-                  type="button"
-                  onClick={handleGetLocation}
-                >
+                <button type="button" onClick={handleGetLocation}>
                   <LocateFixed size={16} />
                   Use current location
                 </button>
 
-                {locationStatus && (
-                  <span>{locationStatus}</span>
-                )}
+                {locationStatus && <span>{locationStatus}</span>}
               </div>
 
               <div className="newReportLocationResult">
                 <Navigation size={19} />
-
                 <div>
                   <strong>
                     {hasLocation
                       ? "Road location confirmed"
                       : "Location not selected"}
                   </strong>
-
                   <p>
                     {reportForm.location ||
                       "Search by city, locality, district or PIN code."}
                   </p>
-
-                  {reportForm.latitude &&
-                    reportForm.longitude && (
-                      <small>
-                        {reportForm.latitude},{" "}
-                        {reportForm.longitude}
-                      </small>
-                    )}
+                  {reportForm.latitude && reportForm.longitude && (
+                    <small>
+                      {reportForm.latitude}, {reportForm.longitude}
+                    </small>
+                  )}
                 </div>
               </div>
 
               <label className="newReportField addressField">
                 <span>Confirmed address</span>
-
                 <input
                   name="location"
                   value={reportForm.location}
@@ -283,18 +291,16 @@ function NewReport({
                   <span>Step 03</span>
                   <h2>Describe the road issue</h2>
                   <p>
-                    Provide the details required for inspection and
-                    complaint filing.
+                    Provide the details required for inspection and complaint
+                    filing.
                   </p>
                 </div>
-
                 <FileText size={21} />
               </div>
 
               <div className="newReportFields">
                 <label className="newReportField">
                   <span>Issue type</span>
-
                   <select
                     name="issueType"
                     value={reportForm.issueType}
@@ -308,12 +314,12 @@ function NewReport({
                     <option>Garbage or obstruction</option>
                     <option>Damaged divider</option>
                     <option>Missing road sign</option>
+                    <option>Other road issue</option>
                   </select>
                 </label>
 
                 <label className="newReportField">
                   <span>Severity</span>
-
                   <select
                     name="severity"
                     value={reportForm.severity}
@@ -328,7 +334,6 @@ function NewReport({
 
                 <label className="newReportField fullField">
                   <span>Description</span>
-
                   <textarea
                     name="description"
                     value={reportForm.description}
@@ -337,19 +342,26 @@ function NewReport({
                     rows="5"
                   />
                 </label>
+
+                <button
+                  className="newReportAIButton"
+                  type="button"
+                  onClick={handleGenerateAIReport}
+                  disabled={aiReportLoading}
+                >
+                  <BrainCircuit size={17} />
+                  {aiReportLoading
+                    ? "Generating AI report..."
+                    : "Generate AI Report"}
+                </button>
               </div>
             </section>
 
             {submitStatus && (
-              <p className="newReportSubmitStatus">
-                {submitStatus}
-              </p>
+              <p className="newReportSubmitStatus">{submitStatus}</p>
             )}
 
-            <button
-              className="newReportSubmit"
-              type="submit"
-            >
+            <button className="newReportSubmit" type="submit">
               <FileText size={17} />
               Submit verified road report
             </button>
@@ -361,16 +373,12 @@ function NewReport({
                 <span>Complaint preview</span>
                 <h2>Report summary</h2>
               </div>
-
               <ShieldCheck size={21} />
             </div>
 
             <div className="newReportPreviewEvidence">
               {reportForm.photoPreview ? (
-                <img
-                  src={reportForm.photoPreview}
-                  alt="Road evidence preview"
-                />
+                <img src={reportForm.photoPreview} alt="Road evidence preview" />
               ) : (
                 <div>
                   <Camera size={23} />
@@ -392,12 +400,36 @@ function NewReport({
 
               <div className="fullPreviewDetail">
                 <span>Location</span>
-                <strong>
-                  {reportForm.location ||
-                    "Waiting for location"}
-                </strong>
+                <strong>{reportForm.location || "Waiting for location"}</strong>
               </div>
             </div>
+
+            {photoAnalysisResult && (
+              <div className="newReportAIResult">
+                <div>
+                  <BrainCircuit size={18} />
+                  <strong>AI photo detection</strong>
+                </div>
+
+                <p>
+                  <b>Detected:</b>{" "}
+                  {photoAnalysisResult.issueType || "Road issue"}
+                </p>
+
+                <p>
+                  <b>Evidence:</b>{" "}
+                  {photoAnalysisResult.visibleEvidence ||
+                    photoAnalysisResult.description ||
+                    "AI reviewed the uploaded road photo."}
+                </p>
+
+                <p>
+                  <b>Suggested action:</b>{" "}
+                  {photoAnalysisResult.suggestedAction ||
+                    "Manual review recommended."}
+                </p>
+              </div>
+            )}
 
             <div className="newReportAuthority">
               <span className="newReportAuthorityIcon">
@@ -406,16 +438,13 @@ function NewReport({
 
               <div>
                 <small>Likely responsible authority</small>
-
                 <strong>
                   {authorityLoading
                     ? "Finding responsible authority..."
                     : authorityName}
                 </strong>
-
                 <p>{authorityDepartment}</p>
                 <span>{authorityChannel}</span>
-
                 <b>
                   {authorityLoading
                     ? "Checking jurisdiction"
@@ -436,31 +465,47 @@ function NewReport({
               </a>
             )}
 
+            {aiReportResult && (
+              <div className="newReportAIResult">
+                <div>
+                  <BrainCircuit size={18} />
+                  <strong>AI civic report generated</strong>
+                </div>
+
+                <p>
+                  <b>Risk:</b>{" "}
+                  {aiReportResult.riskSummary ||
+                    "Generated from report details."}
+                </p>
+
+                <p>
+                  <b>Suggested action:</b>{" "}
+                  {aiReportResult.suggestedAction ||
+                    "Inspection and repair action suggested."}
+                </p>
+
+                <p>
+                  <b>Suggested severity:</b>{" "}
+                  {aiReportResult.suggestedSeverity || reportForm.severity}
+                </p>
+              </div>
+            )}
+
             <div className="newReportDraft">
               <div>
                 <strong>Complaint draft</strong>
-
-                <span>
-                  {hasPhoto
-                    ? "Evidence attached"
-                    : "Evidence required"}
-                </span>
+                <span>{hasPhoto ? "Evidence attached" : "Evidence required"}</span>
               </div>
 
               <p>To the concerned road authority,</p>
 
               <p>
-                A <b>{reportForm.severity.toLowerCase()}</b>{" "}
-                severity issue has been reported as{" "}
-                <b>{reportForm.issueType}</b>.
+                A <b>{reportForm.severity.toLowerCase()}</b> severity issue has
+                been reported as <b>{reportForm.issueType}</b>.
               </p>
 
               <p>
-                Location:{" "}
-                <b>
-                  {reportForm.location ||
-                    "Location not selected"}
-                </b>
+                Location: <b>{reportForm.location || "Location not selected"}</b>
               </p>
 
               <p>
@@ -469,8 +514,8 @@ function NewReport({
               </p>
 
               <p>
-                Kindly inspect the location and take the required
-                action for public safety.
+                Kindly inspect the location and take the required action for
+                public safety.
               </p>
             </div>
           </aside>
@@ -623,9 +668,7 @@ const styles = `
 
   .newReportLayout {
     display: grid;
-    grid-template-columns:
-      minmax(0, 1.35fr)
-      minmax(310px, 0.65fr);
+    grid-template-columns: minmax(0, 1.35fr) minmax(310px, 0.65fr);
     align-items: start;
     gap: 22px;
     margin-top: 22px;
@@ -794,6 +837,76 @@ const styles = `
     font-size: 11px;
   }
 
+  .newReportPhotoTools {
+    display: grid;
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .newReportPhotoTools button {
+    min-height: 42px;
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #171a18;
+    color: #171a18;
+    background: #ffffff;
+    padding: 0 14px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .newReportPhotoTools button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .newReportDetectionCard {
+    padding: 14px;
+    border: 1px solid #cfd6d1;
+    background: #f7f8f7;
+  }
+
+  .newReportDetectionCard > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .newReportDetectionCard strong,
+  .newReportDetectionCard span,
+  .newReportDetectionCard small {
+    display: block;
+  }
+
+  .newReportDetectionCard strong {
+    color: #171a18;
+    font-size: 13px;
+  }
+
+  .newReportDetectionCard span {
+    color: #59625c;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .newReportDetectionCard p {
+    margin: 10px 0 0;
+    color: #535c56;
+    font-size: 11px;
+    line-height: 1.6;
+  }
+
+  .newReportDetectionCard small {
+    margin-top: 9px;
+    color: #6d756f;
+    font-size: 10px;
+  }
+
   .newReportLocationActions {
     display: flex;
     align-items: center;
@@ -910,6 +1023,27 @@ const styles = `
 
   .fullField {
     grid-column: 1 / -1;
+  }
+
+  .newReportAIButton {
+    min-height: 44px;
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #171a18;
+    color: #ffffff;
+    background: #171a18;
+    padding: 0 16px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .newReportAIButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
   }
 
   .newReportSubmitStatus {
@@ -1103,6 +1237,32 @@ const styles = `
     text-decoration: none;
   }
 
+  .newReportAIResult {
+    margin-top: 18px;
+    padding: 15px;
+    border: 1px solid #cfd6d1;
+    background: #f7f8f7;
+    color: #303733;
+    font-size: 10px;
+    line-height: 1.6;
+  }
+
+  .newReportAIResult > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 11px;
+    color: #171a18;
+  }
+
+  .newReportAIResult p {
+    margin: 0 0 9px;
+  }
+
+  .newReportAIResult p:last-child {
+    margin-bottom: 0;
+  }
+
   .newReportDraft {
     margin-top: 18px;
     padding: 16px;
@@ -1224,205 +1384,6 @@ const styles = `
       justify-content: center;
     }
   }
-    /* Full-width half-screen New Report hero */
-  .newReportPage {
-    padding: 0 0 80px;
-  }
-
-  .newReportPage ~ * {
-    box-sizing: border-box;
-  }
-
-  /* Put the existing Search, notification and Sign in over the image */
-  .main {
-    position: relative;
-  }
-
-  .main > .minimalTopbar {
-    position: absolute;
-    top: 0;
-    right: 0;
-    left: 0;
-    z-index: 30;
-    min-height: 76px;
-    padding: 0 42px;
-    border: 0;
-    color: #ffffff;
-    background: linear-gradient(
-      to bottom,
-      rgba(5, 8, 6, 0.72),
-      transparent
-    );
-  }
-
-  .main > .minimalTopbar button,
-  .main > .minimalTopbar span,
-  .main > .minimalTopbar svg {
-    color: #ffffff;
-  }
-
-  .main > .minimalTopbar button {
-    border-color: rgba(255, 255, 255, 0.4);
-    background: transparent;
-  }
-
-  .main > .minimalTopbar .topbarProfileCircle {
-    color: #111713;
-    background: #ffffff;
-  }
-
-  .main > .minimalTopbar .topbarProfileCircle svg {
-    color: #111713;
-  }
-
-  /* Remove the status strip from the New Report page */
-  .main > .frontendStatusBar {
-    display: none;
-  }
-
-  .newReportHero {
-    width: 100%;
-    height: clamp(520px, 58vh, 650px);
-    margin: 0;
-    border-radius: 0;
-  }
-
-  .newReportHero > img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center 42%;
-  }
-
-  .newReportHeroOverlay {
-    background:
-      linear-gradient(
-        90deg,
-        rgba(5, 8, 6, 0.94) 0%,
-        rgba(5, 8, 6, 0.76) 38%,
-        rgba(5, 8, 6, 0.25) 70%,
-        rgba(5, 8, 6, 0.08) 100%
-      ),
-      linear-gradient(
-        to bottom,
-        rgba(5, 8, 6, 0.25),
-        transparent 30%,
-        rgba(5, 8, 6, 0.32)
-      );
-  }
-
-  .newReportHeroContent {
-    top: 48%;
-    left: clamp(36px, 6vw, 100px);
-    width: min(670px, calc(100% - 72px));
-  }
-
-  .newReportHeroContent > p {
-    margin-bottom: 16px;
-    color: rgba(255, 255, 255, 0.76);
-    font-size: 12px;
-    letter-spacing: 0;
-  }
-
-  .newReportHeroContent h1 {
-    max-width: 650px;
-    font-size: clamp(48px, 6vw, 82px);
-    font-weight: 600;
-    line-height: 0.98;
-  }
-
-  .newReportHeroContent > span {
-    max-width: 610px;
-    margin-top: 23px;
-    color: rgba(255, 255, 255, 0.82);
-    font-size: 16px;
-    line-height: 1.7;
-  }
-
-  .newReportWorkspace {
-    width: min(1220px, calc(100% - 64px));
-    margin-top: -64px;
-  }
-
-  .newReportSteps {
-    box-shadow: 0 18px 45px rgba(9, 14, 11, 0.16);
-  }
-
-  .newReportSteps > div {
-    min-height: 82px;
-    box-sizing: border-box;
-    padding: 17px 22px;
-  }
-
-  @media (max-width: 720px) {
-    .main > .minimalTopbar {
-      min-height: 64px;
-      padding: 0 18px;
-    }
-
-    .newReportHero {
-      height: 540px;
-    }
-
-    .newReportHero > img {
-      object-position: 64% center;
-    }
-
-    .newReportHeroOverlay {
-      background:
-        linear-gradient(
-          to right,
-          rgba(5, 8, 6, 0.9),
-          rgba(5, 8, 6, 0.48)
-        ),
-        linear-gradient(
-          to top,
-          rgba(5, 8, 6, 0.65),
-          transparent
-        );
-    }
-
-    .newReportHeroContent {
-      top: 50%;
-      left: 24px;
-      width: calc(100% - 48px);
-    }
-
-    .newReportHeroContent h1 {
-      font-size: clamp(43px, 12vw, 58px);
-    }
-
-    .newReportHeroContent > span {
-      font-size: 14px;
-    }
-
-    .newReportWorkspace {
-      width: calc(100% - 30px);
-      margin-top: -46px;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .main > .minimalTopbar {
-      padding: 0 14px;
-    }
-
-    .topbarSearchText span {
-      display: none;
-    }
-
-    .newReportHero {
-      height: 510px;
-    }
-
-    .newReportHeroContent h1 {
-      font-size: 43px;
-    }
-
-    .newReportSteps > div {
-      min-height: 67px;
-    }
-  }
-
 `;
+
 export default NewReport;

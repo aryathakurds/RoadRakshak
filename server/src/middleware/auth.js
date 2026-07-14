@@ -15,7 +15,8 @@ const protect = async (request, response, next) => {
     const token = authorization.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.userId);
+    const userId = decoded.id || decoded.userId;
+    const user = await User.findById(userId);
 
     if (!user) {
       return response.status(401).json({
@@ -27,7 +28,7 @@ const protect = async (request, response, next) => {
     request.user = user;
     next();
   } catch {
-    response.status(401).json({
+    return response.status(401).json({
       success: false,
       message: "Invalid or expired authentication token",
     });
@@ -36,7 +37,7 @@ const protect = async (request, response, next) => {
 
 const allowRoles = (...roles) => {
   return (request, response, next) => {
-    if (!roles.includes(request.user.role)) {
+    if (!request.user || !roles.includes(request.user.role)) {
       return response.status(403).json({
         success: false,
         message: "You do not have permission for this action",

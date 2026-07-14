@@ -1,26 +1,36 @@
 const Report = require("../models/Report");
 const cloudinary = require("../config/cloudinary");
 
-const uploadImage = (
-  fileBuffer,
-  folder = "roadrakshak/reports"
-) => {
-  return new Promise((resolve, reject) => {
-    const stream =
-      cloudinary.uploader.upload_stream(
-        {
-          folder,
-          resource_type: "image",
-        },
-        (error, result) => {
-          if (error) {
-            reject(error);
-            return;
-          }
+const validSeverities = ["Low", "Medium", "High", "Critical"];
 
-          resolve(result);
+const validIssueTypes = [
+  "Pothole",
+  "Broken road surface",
+  "Road crack",
+  "Waterlogging",
+  "Open manhole",
+  "Garbage or obstruction",
+  "Damaged divider",
+  "Missing road sign",
+  "Other road issue",
+];
+
+const uploadImage = (fileBuffer, folder = "roadrakshak/reports") => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
         }
-      );
+
+        resolve(result);
+      }
+    );
 
     stream.end(fileBuffer);
   });
@@ -34,16 +44,131 @@ const populateReport = (query) => {
       "authorityId",
       "name shortName type state city complaintUrl officialWebsite"
     )
-    .populate(
-      "statusHistory.updatedBy",
-      "name role"
-    );
+    .populate("statusHistory.updatedBy", "name role");
 };
 
-const getReports = async (
-  request,
-  response
-) => {
+const cleanText = (value) => {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  return String(value).trim();
+};
+
+const parseJsonField = (value) => {
+  if (!value) {
+    return {};
+  }
+
+  if (typeof value === "object") {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+};
+
+const parseDateOrNull = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+};
+
+const sanitizeAiReport = (value) => {
+  const aiReport = parseJsonField(value);
+
+  const cleaned = {
+    improvedDescription: cleanText(aiReport.improvedDescription),
+    complaintLetter: cleanText(aiReport.complaintLetter),
+    riskSummary: cleanText(aiReport.riskSummary),
+    suggestedAction: cleanText(aiReport.suggestedAction),
+    suggestedSeverity: cleanText(aiReport.suggestedSeverity),
+    model: cleanText(aiReport.model),
+    generatedAt: parseDateOrNull(aiReport.generatedAt),
+  };
+
+  const hasAiContent = Boolean(
+    cleaned.improvedDescription ||
+      cleaned.complaintLetter ||
+      cleaned.riskSummary ||
+      cleaned.suggestedAction ||
+      cleaned.suggestedSeverity
+  );
+
+  if (!hasAiContent) {
+    return {};
+  }
+
+  if (!validSeverities.includes(cleaned.suggestedSeverity)) {
+    cleaned.suggestedSeverity = "";
+  }
+
+  if (!cleaned.generatedAt) {
+    cleaned.generatedAt = new Date();
+  }
+
+  return cleaned;
+};
+
+const sanitizeAiDetection = (value) => {
+  const aiDetection = parseJsonField(value);
+
+  const cleaned = {
+    isRoadIssue:
+      aiDetection.isRoadIssue === true || aiDetection.isRoadIssue === "true",
+
+    issueType: cleanText(aiDetection.issueType),
+    confidence: cleanText(aiDetection.confidence),
+    severity: cleanText(aiDetection.severity),
+    description: cleanText(aiDetection.description),
+    riskSummary: cleanText(aiDetection.riskSummary),
+    suggestedAction: cleanText(aiDetection.suggestedAction),
+    visibleEvidence: cleanText(aiDetection.visibleEvidence),
+    model: cleanText(aiDetection.model),
+    analyzedAt: parseDateOrNull(aiDetection.analyzedAt),
+  };
+
+  const hasDetectionContent = Boolean(
+    cleaned.issueType ||
+      cleaned.confidence ||
+      cleaned.severity ||
+      cleaned.description ||
+      cleaned.riskSummary ||
+      cleaned.suggestedAction ||
+      cleaned.visibleEvidence
+  );
+
+  if (!hasDetectionContent) {
+    return {};
+  }
+
+  if (!validIssueTypes.includes(cleaned.issueType)) {
+    cleaned.issueType = "Other road issue";
+  }
+
+  if (!validSeverities.includes(cleaned.severity)) {
+    cleaned.severity = "";
+  }
+
+  if (!cleaned.analyzedAt) {
+    cleaned.analyzedAt = new Date();
+  }
+
+  return cleaned;
+};
+
+const getReports = async (request, response) => {
   try {
     const reports = await populateReport(
       Report.find().sort({
@@ -64,10 +189,7 @@ const getReports = async (
   }
 };
 
-const getMyReports = async (
-  request,
-  response
-) => {
+const getMyReports = async (request, response) => {
   try {
     const reports = await populateReport(
       Report.find({
@@ -90,14 +212,9 @@ const getMyReports = async (
   }
 };
 
-const getReportById = async (
-  request,
-  response
-) => {
+const getReportById = async (request, response) => {
   try {
-    const report = await populateReport(
-      Report.findById(request.params.id)
-    );
+    const report = await populateReport(Report.findById(request.params.id));
 
     if (!report) {
       return response.status(404).json({
@@ -118,66 +235,50 @@ const getReportById = async (
   }
 };
 
-const createReport = async (
-  request,
-  response
-) => {
+const createReport = async (request, response) => {
   try {
     let photoUrl = "";
 
     if (request.file) {
-      const image = await uploadImage(
-        request.file.buffer
-      );
-
+      const image = await uploadImage(request.file.buffer);
       photoUrl = image.secure_url;
     }
 
-    const longitude = Number(
-      request.body.longitude
-    );
+    const longitude = Number(request.body.longitude);
+    const latitude = Number(request.body.latitude);
 
-    const latitude = Number(
-      request.body.latitude
-    );
+    const aiReport = sanitizeAiReport(request.body.aiReport);
+    const aiDetection = sanitizeAiDetection(request.body.aiDetection);
 
-    const initialStatus =
-      "Complaint ready";
+    const initialStatus = "Complaint ready";
 
     const report = await Report.create({
       issue: request.body.issue,
-      severity: request.body.severity,
-      description:
-        request.body.description,
+      severity: validSeverities.includes(request.body.severity)
+        ? request.body.severity
+        : "Medium",
+
+      description: request.body.description,
       location: request.body.location,
 
       coordinates: {
         type: "Point",
         coordinates: [
-          Number.isFinite(longitude)
-            ? longitude
-            : 78.6569,
-
-          Number.isFinite(latitude)
-            ? latitude
-            : 22.9734,
+          Number.isFinite(longitude) ? longitude : 78.6569,
+          Number.isFinite(latitude) ? latitude : 22.9734,
         ],
       },
 
-      authorityId:
-        request.body.authorityId || null,
+      authorityId: request.body.authorityId || null,
 
-      authority:
-        request.body.authority ||
-        "Authority pending",
+      authority: request.body.authority || "Authority pending",
 
-      channel:
-        request.body.channel ||
-        "Complaint channel pending",
+      channel: request.body.channel || "Complaint channel pending",
 
-      complaintPortalUrl:
-        request.body.complaintPortalUrl ||
-        "",
+      complaintPortalUrl: request.body.complaintPortalUrl || "",
+
+      aiReport,
+      aiDetection,
 
       status: initialStatus,
 
@@ -185,10 +286,11 @@ const createReport = async (
         {
           status: initialStatus,
           note:
-            "Road issue report created and complaint draft prepared.",
+            aiReport.complaintLetter || aiDetection.issueType
+              ? "Road issue report created with AI assistance."
+              : "Road issue report created and complaint draft prepared.",
           updatedBy: request.user._id,
-          updatedByName:
-            request.user.name,
+          updatedByName: request.user.name,
         },
       ],
 
@@ -197,10 +299,7 @@ const createReport = async (
       photoUrl,
     });
 
-    const savedReport =
-      await populateReport(
-        Report.findById(report._id)
-      );
+    const savedReport = await populateReport(Report.findById(report._id));
 
     response.status(201).json({
       success: true,
@@ -215,15 +314,9 @@ const createReport = async (
   }
 };
 
-const updateReport = async (
-  request,
-  response
-) => {
+const updateReport = async (request, response) => {
   try {
-    const report =
-      await Report.findById(
-        request.params.id
-      );
+    const report = await Report.findById(request.params.id);
 
     if (!report) {
       return response.status(404).json({
@@ -247,55 +340,43 @@ const updateReport = async (
     ];
 
     editableFields.forEach((field) => {
-      if (
-        request.body[field] !== undefined
-      ) {
+      if (request.body[field] !== undefined) {
         report[field] =
-          request.body[field] ||
-          (field === "authorityId"
-            ? null
-            : "");
+          request.body[field] || (field === "authorityId" ? null : "");
       }
     });
 
-    const nextStatus =
-      request.body.status;
+    if (request.body.aiReport !== undefined) {
+      report.aiReport = sanitizeAiReport(request.body.aiReport);
+    }
 
-    const statusNote = String(
-      request.body.statusNote || ""
-    ).trim();
+    if (request.body.aiDetection !== undefined) {
+      report.aiDetection = sanitizeAiDetection(request.body.aiDetection);
+    }
 
-    if (
-      nextStatus &&
-      nextStatus !== report.status
-    ) {
+    const nextStatus = request.body.status;
+    const statusNote = String(request.body.statusNote || "").trim();
+
+    if (nextStatus && nextStatus !== report.status) {
       report.status = nextStatus;
 
       report.statusHistory.push({
         status: nextStatus,
-        note:
-          statusNote ||
-          `Report status changed to ${nextStatus}.`,
+        note: statusNote || `Report status changed to ${nextStatus}.`,
         updatedBy: request.user._id,
-        updatedByName:
-          request.user.name,
+        updatedByName: request.user.name,
       });
 
-      if (
-        nextStatus ===
-        "Sent to authority"
-      ) {
+      if (nextStatus === "Sent to authority") {
         report.complaintSubmittedAt =
-          request.body
-            .complaintSubmittedAt ||
+          request.body.complaintSubmittedAt ||
           report.complaintSubmittedAt ||
           new Date();
       }
 
       if (nextStatus === "Resolved") {
         report.resolvedAt = new Date();
-        report.resolvedBy =
-          request.user._id;
+        report.resolvedBy = request.user._id;
       } else {
         report.resolvedAt = null;
         report.resolvedBy = null;
@@ -305,17 +386,13 @@ const updateReport = async (
         status: report.status,
         note: statusNote,
         updatedBy: request.user._id,
-        updatedByName:
-          request.user.name,
+        updatedByName: request.user.name,
       });
     }
 
     await report.save();
 
-    const updatedReport =
-      await populateReport(
-        Report.findById(report._id)
-      );
+    const updatedReport = await populateReport(Report.findById(report._id));
 
     response.status(200).json({
       success: true,
@@ -330,15 +407,9 @@ const updateReport = async (
   }
 };
 
-const resolveReport = async (
-  request,
-  response
-) => {
+const resolveReport = async (request, response) => {
   try {
-    const report =
-      await Report.findById(
-        request.params.id
-      );
+    const report = await Report.findById(request.params.id);
 
     if (!report) {
       return response.status(404).json({
@@ -347,23 +418,19 @@ const resolveReport = async (
       });
     }
 
-    const resolutionNote = String(
-      request.body.resolutionNote || ""
-    ).trim();
+    const resolutionNote = String(request.body.resolutionNote || "").trim();
 
     if (!resolutionNote) {
       return response.status(400).json({
         success: false,
-        message:
-          "Resolution note is required",
+        message: "Resolution note is required",
       });
     }
 
     if (!request.file) {
       return response.status(400).json({
         success: false,
-        message:
-          "Repair evidence photo is required",
+        message: "Repair evidence photo is required",
       });
     }
 
@@ -373,36 +440,25 @@ const resolveReport = async (
     );
 
     report.status = "Resolved";
-    report.resolutionNote =
-      resolutionNote;
-
-    report.resolutionEvidenceUrl =
-      image.secure_url;
-
+    report.resolutionNote = resolutionNote;
+    report.resolutionEvidenceUrl = image.secure_url;
     report.resolvedAt = new Date();
-
-    report.resolvedBy =
-      request.user._id;
+    report.resolvedBy = request.user._id;
 
     report.statusHistory.push({
       status: "Resolved",
       note: resolutionNote,
       updatedBy: request.user._id,
-      updatedByName:
-        request.user.name,
+      updatedByName: request.user.name,
     });
 
     await report.save();
 
-    const resolvedReport =
-      await populateReport(
-        Report.findById(report._id)
-      );
+    const resolvedReport = await populateReport(Report.findById(report._id));
 
     response.status(200).json({
       success: true,
-      message:
-        "Report resolved with repair evidence",
+      message: "Report resolved with repair evidence",
       report: resolvedReport,
     });
   } catch (error) {
@@ -413,15 +469,9 @@ const resolveReport = async (
   }
 };
 
-const deleteReport = async (
-  request,
-  response
-) => {
+const deleteReport = async (request, response) => {
   try {
-    const report =
-      await Report.findById(
-        request.params.id
-      );
+    const report = await Report.findById(request.params.id);
 
     if (!report) {
       return response.status(404).json({
@@ -432,19 +482,14 @@ const deleteReport = async (
 
     const isOwner =
       report.createdBy &&
-      report.createdBy.toString() ===
-        request.user._id.toString();
+      report.createdBy.toString() === request.user._id.toString();
 
-    const canDeleteAny = [
-      "moderator",
-      "admin",
-    ].includes(request.user.role);
+    const canDeleteAny = ["moderator", "admin"].includes(request.user.role);
 
     if (!isOwner && !canDeleteAny) {
       return response.status(403).json({
         success: false,
-        message:
-          "You can only delete your own reports",
+        message: "You can only delete your own reports",
       });
     }
 

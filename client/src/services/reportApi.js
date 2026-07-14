@@ -1,7 +1,4 @@
-import {
-  apiRequest,
-  getToken,
-} from "./apiClient";
+import { apiRequest, getToken } from "./apiClient";
 
 export const getReports = () => {
   return apiRequest("/reports");
@@ -18,17 +15,23 @@ export const getMyReports = () => {
 export const createReport = (report) => {
   const formData = new FormData();
 
-  Object.entries(report).forEach(
-    ([key, value]) => {
-      if (
-        value !== undefined &&
-        value !== null &&
-        value !== ""
-      ) {
-        formData.append(key, value);
-      }
+  Object.entries(report).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
     }
-  );
+
+    if (value instanceof File || value instanceof Blob) {
+      formData.append(key, value);
+      return;
+    }
+
+    if (typeof value === "object") {
+      formData.append(key, JSON.stringify(value));
+      return;
+    }
+
+    formData.append(key, value);
+  });
 
   return apiRequest("/reports", {
     method: "POST",
@@ -41,69 +44,42 @@ export const createReport = (report) => {
   });
 };
 
-export const updateReport = (
-  reportId,
-  changes
-) => {
-  return apiRequest(
-    `/reports/${reportId}`,
-    {
-      method: "PATCH",
+export const updateReport = (reportId, changes) => {
+  return apiRequest(`/reports/${reportId}`, {
+    method: "PATCH",
 
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${getToken()}`,
-      },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,
+    },
 
-      body: JSON.stringify(changes),
-    }
-  );
+    body: JSON.stringify(changes),
+  });
 };
 
-export const resolveReport = (
-  reportId,
-  {
-    resolutionNote,
-    evidence,
-  }
-) => {
+export const resolveReport = (reportId, { resolutionNote, evidence }) => {
   const formData = new FormData();
 
-  formData.append(
-    "resolutionNote",
-    resolutionNote
-  );
+  formData.append("resolutionNote", resolutionNote);
+  formData.append("evidence", evidence);
 
-  formData.append(
-    "evidence",
-    evidence
-  );
+  return apiRequest(`/reports/${reportId}/resolve`, {
+    method: "POST",
 
-  return apiRequest(
-    `/reports/${reportId}/resolve`,
-    {
-      method: "POST",
+    headers: {
+      Authorization: `Bearer ${getToken()}`,
+    },
 
-      headers: {
-        Authorization: `Bearer ${getToken()}`,
-      },
-
-      body: formData,
-    }
-  );
+    body: formData,
+  });
 };
 
-export const deleteReport = (
-  reportId
-) => {
-  return apiRequest(
-    `/reports/${reportId}`,
-    {
-      method: "DELETE",
+export const deleteReport = (reportId) => {
+  return apiRequest(`/reports/${reportId}`, {
+    method: "DELETE",
 
-      headers: {
-        Authorization: `Bearer ${getToken()}`,
-      },
-    }
-  );
+    headers: {
+      Authorization: `Bearer ${getToken()}`,
+    },
+  });
 };
