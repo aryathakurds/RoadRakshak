@@ -1,4 +1,4 @@
-# RoadRakshak
+<h1 align="center">RoadRakshak</h1>
 
 <p align="center">
   <strong>AI-powered road issue reporting and civic complaint routing platform for India</strong>
